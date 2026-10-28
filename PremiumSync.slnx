@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PremiumSync.BillingService/PremiumSync.BillingService.csproj" />
+    <Project Path="src/PremiumSync.Contracts/PremiumSync.Contracts.csproj" />
+    <Project Path="src/PremiumSync.PolicyService/PremiumSync.PolicyService.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PremiumSync.Tests/PremiumSync.Tests.csproj" />
+  </Folder>
+</Solution>
