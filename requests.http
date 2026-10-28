@@ -1,0 +1,56 @@
+# Open in VS Code with the REST Client extension and click "Send Request".
+@policy = http://localhost:5001
+@billing = http://localhost:5002
+
+### Bind a new policy
+POST {{policy}}/api/policies
+Content-Type: application/json
+
+{
+  "insuredName": "Acme Dental Group",
+  "effectiveDate": "2026-01-01",
+  "annualPremium": 1200,
+  "feeAmount": 50,
+  "commissionRate": 0.15
+}
+
+### Endorse it midterm (annual +600, prorated by the service)
+POST {{policy}}/api/policies/PS-000001/endorsements
+Content-Type: application/json
+
+{
+  "effectiveDate": "2026-07-02",
+  "annualPremiumChange": 600
+}
+
+### Cancel it
+POST {{policy}}/api/policies/PS-000001/cancel
+Content-Type: application/json
+
+{
+  "effectiveDate": "2026-10-01"
+}
+
+### Policy view
+GET {{policy}}/api/policies/PS-000001
+
+### Billing view of the same policy
+GET {{billing}}/api/billing/accounts/PS-000001
+
+### Generate 100 test policies
+POST {{policy}}/api/dev/seed?count=100
+
+### Send a bad transaction straight to billing (should be rejected with 400)
+POST {{billing}}/api/inbound/transactions
+Content-Type: application/json
+
+{
+  "transactionId": "00000000-0000-0000-0000-000000000000",
+  "policyNumber": "PS-999999",
+  "sequence": 2,
+  "type": "Cancellation",
+  "effectiveDate": "2026-05-01",
+  "premiumChange": 250.005,
+  "feeAmount": 0,
+  "commissionRate": 0.9
+}
