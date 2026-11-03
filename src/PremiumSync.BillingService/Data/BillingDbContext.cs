@@ -26,9 +26,9 @@ public class BillingDbContext(DbContextOptions<BillingDbContext> options) : DbCo
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.Entity<BillingTransaction>().HasIndex(t => t.PolicyNumber);
-        // Not unique yet on purpose. In Phase 2 you'll send duplicates, watch them double-bill,
-        // then fix it with an idempotency check (and make this index unique).
-        b.Entity<BillingTransaction>().HasIndex(t => t.SourceTransactionId);
+        // Unique: the database itself refuses a second row for the same source transaction.
+        // This is the safety net behind the idempotency check in the inbound endpoint.
+        b.Entity<BillingTransaction>().HasIndex(t => t.SourceTransactionId).IsUnique();
         b.Entity<BillingTransaction>().Property(t => t.Type).HasConversion<string>();
     }
 }
