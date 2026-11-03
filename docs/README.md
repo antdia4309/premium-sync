@@ -5,6 +5,7 @@ Root cause analyses for each failure scenario in the project.
 | # | Scenario | Fix |
 |---|----------|-----|
 | [001](rca-001-duplicate-billing.md) | Duplicate submission double-books premium and commission | Idempotency check + unique index |
+| [002](rca-002-billing-outage.md) | Transactions stuck when billing is unavailable | Retry worker with backoff + error queue |
 
 ## RCA template
 

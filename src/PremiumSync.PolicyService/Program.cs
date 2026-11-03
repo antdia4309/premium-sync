@@ -3,6 +3,7 @@ using PremiumSync.PolicyService.Billing;
 using PremiumSync.PolicyService.Data;
 using PremiumSync.PolicyService.Domain;
 using PremiumSync.PolicyService.Endpoints;
+using PremiumSync.PolicyService.Sync;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,6 +24,11 @@ builder.Services.AddHttpClient<BillingClient>(c =>
 });
 builder.Services.AddScoped<PolicyWorkflow>();
 
+builder.Services.Configure<RetryOptions>(builder.Configuration.GetSection("Retry"));
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<TransactionSender>();
+builder.Services.AddHostedService<RetryWorker>();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -40,6 +46,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();
 app.MapPolicyEndpoints();
+app.MapSyncEndpoints();
 
 app.Run();
 
