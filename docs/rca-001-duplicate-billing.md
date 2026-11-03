@@ -1,9 +1,7 @@
 # RCA 001: Duplicate submission double-books premium and commission
 
-> Fill in the bracketed parts with what you actually saw when you reproduced it.
-
 ## Symptom
-A policy's billing account showed [2] transactions and $[360.00] commission for a single new business transaction. Expected: 1 transaction and $180.00 commission.
+A policy's billing account showed 2 transactions and $360.00 commission for a single new business transaction. Expected: 1 transaction and $180.00 commission.
 
 ## How it was caught
 Sent the same `PolicyTransactionMessage` (same `TransactionId`) to `/api/inbound/transactions` twice, simulating a sender retry after a timeout. Both calls returned [201 Created], and `GET /api/billing/accounts/PS-DUP-001` showed both rows.
@@ -22,7 +20,7 @@ Why it matters in the real world: senders retry. A timeout doesn't mean the firs
 
 ## Verification
 - Unit tests in `ReplayCheckTests` cover new, duplicate, and conflict cases.
-- Re-ran the repro: first send [201 Created], second send [200 OK], conflicting send [409 Conflict]. Account shows [1] row(s) and $[180.0] commission.
+- Re-ran the repro: first send 201 Created, second send 200 OK, conflicting send 409 Conflict. Account shows 1 row and $180.00 commission.
 
 ## Lessons
-- You should always validate on the receiving side even when the sender is internal. Not doing so can cause duplicate transactions that integrate with other platforms causing discrepancies and in most cases issues with Billing the customer and providing incorrect Commission.
+- Always validate on the receiving side, even when the sender is internal. Without it, duplicate transactions flow into downstream platforms, causing billing errors for the customer and incorrect commission.
