@@ -53,7 +53,7 @@ dotnet test
 - [x] **Phase 1, happy path:** policy and billing services, contract validation, proration, commission, tests
 - [ ] **Phase 2, realistic failures** (in progress)
   - [x] Duplicate submissions → idempotency check + unique index ([RCA 001](docs/rca-001-duplicate-billing.md))
-  - [ ] Billing outages → automatic retries and an error queue
+  - [x] Billing outages → automatic retries with backoff and an error queue ([RCA 002](docs/rca-002-billing-outage.md))
   - [ ] Out-of-order transactions
   - [ ] Rounding drift on prorated changes
   - [ ] Multi-period and $0 cancellation edge cases
@@ -76,6 +76,7 @@ docs/                          RCA write-ups (Phase 2+)
 
 - **Save, then send.** The policy system records every transaction before calling billing, so an outage never loses data. Failed sends stay visible for retry.
 - **Billing doesn't trust the sender.** All contract rules are enforced on the receiving side.
+- **Failures are classified, retried, then parked.** Temporary failures (billing down, timeouts, 5xx) retry automatically in the background with exponential backoff. Permanent rejections (400, 409) and transactions that run out of attempts go to an error queue for a person to review and resend.
 - **Money is `decimal`, rounded to cents, half away from zero**, and that rule is covered by tests on both positive and negative amounts.
 - **Known simplification:** cancellation return premium applies the remaining-term fraction to total written premium. That's exact without endorsements; making it exact for endorsed policies is a Phase 2 task.
 - **Billing is idempotent.** Every transaction carries a `TransactionId`. A retry with the same ID and data returns the original result without booking anything new; the same ID with different data is rejected with `409 Conflict`. A unique index backs this up at the database level.

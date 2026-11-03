@@ -88,3 +88,16 @@ Content-Type: application/json
   "feeAmount": 50,
   "commissionRate": 0.15
 }
+
+### ---------- Phase 2: retries and the error queue ----------
+### Sync status: how many transactions are Sent, Failed (retrying), or DeadLettered
+GET {{policy}}/api/sync/status
+
+### Transactions waiting for an automatic retry
+GET {{policy}}/api/sync/retrying
+
+### Error queue: gave up, needs a person
+GET {{policy}}/api/sync/errors
+
+### Resend one from the error queue (paste a transactionId from the list above)
+POST {{policy}}/api/sync/errors/fab124d9-c318-4860-8ee1-16db67e43bde/resend

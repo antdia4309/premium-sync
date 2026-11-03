@@ -4,7 +4,12 @@ namespace PremiumSync.PolicyService.Data;
 
 public enum PolicyStatus { InForce, Cancelled }
 
-public enum SyncStatus { Pending, Sent, Failed }
+/// <summary>
+/// Pending: saved, not sent yet. Sent: billing accepted it.
+/// Failed: a temporary problem (billing down, timeout); the retry worker will try again.
+/// DeadLettered: gave up (permanent rejection or too many attempts); needs a person to look at it.
+/// </summary>
+public enum SyncStatus { Pending, Sent, Failed, DeadLettered }
 
 public class Policy
 {
@@ -33,7 +38,10 @@ public class PolicyTransaction
     public decimal FeeAmount { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
-    // Did billing accept it? Phase 2 adds retries for Failed rows.
+    // Did billing accept it? The retry worker picks up Failed rows when NextAttemptAtUtc arrives.
     public SyncStatus SyncStatus { get; set; } = SyncStatus.Pending;
     public string? SyncError { get; set; }
+    public int AttemptCount { get; set; }
+    public DateTime? LastAttemptAtUtc { get; set; }
+    public DateTime? NextAttemptAtUtc { get; set; }
 }

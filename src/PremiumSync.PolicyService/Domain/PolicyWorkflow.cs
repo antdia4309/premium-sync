@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PremiumSync.Contracts;
-using PremiumSync.PolicyService.Billing;
 using PremiumSync.PolicyService.Data;
+using PremiumSync.PolicyService.Sync;
 
 namespace PremiumSync.PolicyService.Domain;
 
@@ -15,7 +15,7 @@ public record WorkflowResult(PolicyTransaction? Transaction, Dictionary<string, 
 /// The policy-side business rules: create, endorse, cancel.
 /// Every premium-bearing transaction is saved first, then sent to billing.
 /// </summary>
-public class PolicyWorkflow(PolicyDbContext db, BillingClient billing)
+public class PolicyWorkflow(PolicyDbContext db, TransactionSender sender)
 {
     public async Task<WorkflowResult> CreateAsync(CreatePolicyRequest req, CancellationToken ct = default)
     {
@@ -87,13 +87,8 @@ public class PolicyWorkflow(PolicyDbContext db, BillingClient billing)
         policy.Transactions.Add(txn);
         await db.SaveChangesAsync(ct);
 
-        var message = new PolicyTransactionMessage(
-            txn.TransactionId, policy.PolicyNumber, txn.Sequence, txn.Type,
-            txn.EffectiveDate, txn.PremiumChange, txn.FeeAmount, policy.CommissionRate);
-
-        var (ok, error) = await billing.SendAsync(message, ct);
-        txn.SyncStatus = ok ? SyncStatus.Sent : SyncStatus.Failed;
-        txn.SyncError = error;
+        // Send and record the outcome. If billing is down, the retry worker takes it from here.
+        await sender.SendAsync(txn, ct);
         await db.SaveChangesAsync(ct);
 
         return new WorkflowResult(txn);

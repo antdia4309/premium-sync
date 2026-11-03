@@ -18,10 +18,10 @@ public record EndorseRequest(
 public record CancelRequest(DateOnly EffectiveDate);
 
 public record TransactionDto(Guid TransactionId, int Sequence, string Type, DateOnly EffectiveDate,
-    decimal PremiumChange, decimal FeeAmount, string SyncStatus, string? SyncError)
+    decimal PremiumChange, decimal FeeAmount, string SyncStatus, int AttemptCount, string? SyncError)
 {
     public static TransactionDto From(PolicyTransaction t) => new(t.TransactionId, t.Sequence, t.Type.ToString(),
-        t.EffectiveDate, t.PremiumChange, t.FeeAmount, t.SyncStatus.ToString(), t.SyncError);
+        t.EffectiveDate, t.PremiumChange, t.FeeAmount, t.SyncStatus.ToString(), t.AttemptCount, t.SyncError);
 }
 
 public record PolicyDto(string PolicyNumber, string InsuredName, DateOnly EffectiveDate, DateOnly ExpirationDate,
