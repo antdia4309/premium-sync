@@ -22,6 +22,18 @@ public static class BillingEndpoints
                 return Results.ValidationProblem(errors);
             }
 
+            // Idempotency check: have we already booked this TransactionId?
+            var existing = await db.Transactions.FirstOrDefaultAsync(t => t.SourceTransactionId == msg.TransactionId);
+            switch (ReplayCheck.Evaluate(existing, msg))
+            {
+                case ReplayResult.Duplicate:
+                    log.LogInformation("Duplicate {TransactionId} for {PolicyNumber} ignored", msg.TransactionId, msg.PolicyNumber);
+                    return Results.Ok(existing);   // same answer as the first time, nothing new booked
+                case ReplayResult.Conflict:
+                    log.LogWarning("Conflict: {TransactionId} reused with different data", msg.TransactionId);
+                    return Results.Conflict(new { error = "TransactionId was already used for a different transaction.", existing });
+            }
+
             var row = new BillingTransaction
             {
                 SourceTransactionId = msg.TransactionId,
@@ -35,7 +47,17 @@ public static class BillingEndpoints
                 CommissionAmount = CommissionCalculator.Calculate(msg.PremiumChange, msg.CommissionRate),
             };
             db.Transactions.Add(row);
-            await db.SaveChangesAsync();
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Two copies arrived at the same moment and both passed the check above.
+                // The unique index stopped the second one; answer with the row that won.
+                var winner = await db.Transactions.AsNoTracking().FirstAsync(t => t.SourceTransactionId == msg.TransactionId);
+                return Results.Ok(winner);
+            }
 
             log.LogInformation("Accepted {Type} seq {Sequence} for {PolicyNumber}", msg.Type, msg.Sequence, msg.PolicyNumber);
             return Results.Created($"/api/billing/accounts/{msg.PolicyNumber}", row);

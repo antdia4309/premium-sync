@@ -1,8 +1,16 @@
 # Docs
 
-RCA write-ups go here starting in Phase 2. Template for each one:
+Root cause analyses for each failure scenario in the project.
+
+| # | Scenario | Fix |
+|---|----------|-----|
+| [001](rca-001-duplicate-billing.md) | Duplicate submission double-books premium and commission | Idempotency check + unique index |
+
+## RCA template
 
 1. **Symptom**: what someone would report ("billing shows double commission on PS-000123")
 2. **How it was caught**: the test, log, or reconciliation query that surfaced it
 3. **Root cause**: what actually broke and why
 4. **Fix**: the code or design change, and the test that now guards it
+5. **Verification**: how you proved the fix works
+6. **Lessons**: what you'd do differently or watch for next time

@@ -51,8 +51,13 @@ dotnet test
 ## Roadmap
 
 - [x] **Phase 1, happy path:** policy and billing services, contract validation, proration, commission, tests
-- [ ] **Phase 2, realistic failures:** duplicate submissions and idempotency, out-of-order transactions, retries and an error queue for when billing is down, rounding drift, multi-period edge cases, $0 cancellations
-- [ ] **Phase 3, reconciliation:** SQL report comparing policy vs. billing with mismatch reason codes, a small React dashboard, CI on every push
+- [ ] **Phase 2, realistic failures** (in progress)
+  - [x] Duplicate submissions → idempotency check + unique index ([RCA 001](docs/rca-001-duplicate-billing.md))
+  - [ ] Billing outages → automatic retries and an error queue
+  - [ ] Out-of-order transactions
+  - [ ] Rounding drift on prorated changes
+  - [ ] Multi-period and $0 cancellation edge cases
+- [ ] **Phase 3, reconciliation:** SQL report comparing policy vs. billing with mismatch reason codes, a small React dashboard
 - [ ] **Phase 4, write-ups:** RCA docs for each failure scenario in `/docs`
 
 ## Project layout
@@ -73,3 +78,4 @@ docs/                          RCA write-ups (Phase 2+)
 - **Billing doesn't trust the sender.** All contract rules are enforced on the receiving side.
 - **Money is `decimal`, rounded to cents, half away from zero**, and that rule is covered by tests on both positive and negative amounts.
 - **Known simplification:** cancellation return premium applies the remaining-term fraction to total written premium. That's exact without endorsements; making it exact for endorsed policies is a Phase 2 task.
+- **Billing is idempotent.** Every transaction carries a `TransactionId`. A retry with the same ID and data returns the original result without booking anything new; the same ID with different data is rejected with `409 Conflict`. A unique index backs this up at the database level.
