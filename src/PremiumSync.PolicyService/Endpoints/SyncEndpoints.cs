@@ -24,12 +24,16 @@ public static class SyncEndpoints
         g.MapGet("/retrying", (PolicyDbContext db) => ListAsync(db, SyncStatus.Failed))
             .WithSummary("Transactions waiting for an automatic retry");
 
+        g.MapGet("/held", (PolicyDbContext db) => ListAsync(db, SyncStatus.Held))
+            .WithSummary("Transactions waiting for an earlier transaction on the same policy");
+
         g.MapGet("/errors", (PolicyDbContext db) => ListAsync(db, SyncStatus.DeadLettered))
             .WithSummary("Error queue: transactions that need a person to look at them");
 
         g.MapPost("/errors/{transactionId:guid}/resend", async (Guid transactionId, PolicyDbContext db, TransactionSender sender) =>
         {
-            var txn = await db.Transactions.Include(t => t.Policy).FirstOrDefaultAsync(t => t.TransactionId == transactionId);
+            var txn = await db.Transactions.Include(t => t.Policy).ThenInclude(p => p!.Transactions)
+                .FirstOrDefaultAsync(t => t.TransactionId == transactionId);
             if (txn is null) return Results.NotFound();
             if (txn.SyncStatus != SyncStatus.DeadLettered)
                 return Results.Conflict(new { error = $"Only dead-lettered transactions can be resent. This one is {txn.SyncStatus}." });

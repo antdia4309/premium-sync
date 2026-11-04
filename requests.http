@@ -100,4 +100,61 @@ GET {{policy}}/api/sync/retrying
 GET {{policy}}/api/sync/errors
 
 ### Resend one from the error queue (paste a transactionId from the list above)
-POST {{policy}}/api/sync/errors/fab124d9-c318-4860-8ee1-16db67e43bde/resend
+POST {{policy}}/api/sync/errors/99b3f822-2aa5-42f2-91b8-4d02c5338191/resend
+
+### ---------- Phase 2: out-of-order transactions ----------
+### Set this to the policy number returned by the bind below
+@orderPolicy = PS-000001
+
+### 1. Bind (billing UP)
+POST {{policy}}/api/policies
+Content-Type: application/json
+
+{
+  "insuredName": "Order Test LLC",
+  "effectiveDate": "2026-01-01",
+  "annualPremium": 1200,
+  "feeAmount": 0,
+  "commissionRate": 0.15
+}
+
+### 2. Endorse (stop billing BEFORE sending this one)
+POST {{policy}}/api/policies/{{orderPolicy}}/endorsements
+Content-Type: application/json
+
+{
+  "effectiveDate": "2026-07-02",
+  "annualPremiumChange": 600
+}
+
+### 3. Cancel (start billing again, then send this RIGHT AWAY)
+POST {{policy}}/api/policies/{{orderPolicy}}/cancel
+Content-Type: application/json
+
+{
+  "effectiveDate": "2026-10-01"
+}
+
+### What billing has for this policy (check right after step 3, then again a minute later)
+GET {{billing}}/api/billing/accounts/{{orderPolicy}}
+
+### Billing's booking order: newest first, the id shows the order rows were booked
+GET {{billing}}/api/billing/transactions?take=10
+
+### Transactions held behind an earlier one (after the fix)
+GET {{policy}}/api/sync/held
+
+### Billing guard: sequence 3 for a policy billing has never seen (should be 425 after the fix)
+POST {{billing}}/api/inbound/transactions
+Content-Type: application/json
+
+{
+  "transactionId": "22222222-2222-2222-2222-222222222222",
+  "policyNumber": "PS-ORDER-999",
+  "sequence": 3,
+  "type": "Cancellation",
+  "effectiveDate": "2026-05-01",
+  "premiumChange": -100,
+  "feeAmount": 0,
+  "commissionRate": 0.15
+}

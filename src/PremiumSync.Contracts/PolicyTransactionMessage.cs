@@ -36,3 +36,13 @@ public static class ContractJson
         return options;
     }
 }
+
+/// <summary>Status codes that are part of the integration contract.</summary>
+public static class ContractStatusCodes
+{
+    /// <summary>
+    /// 425 Too Early: billing received a sequence ahead of the one it expects (e.g. 3 before 2).
+    /// The sender should retry later, once the earlier transaction has been delivered.
+    /// </summary>
+    public const int OutOfSequence = 425;
+}

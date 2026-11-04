@@ -35,11 +35,13 @@ public class BillingClient(HttpClient http)
     }
 
     /// <summary>
-    /// 5xx, 408 (timeout), and 429 (too many requests) are temporary: try again later.
+    /// 5xx, 408 (timeout), 425 (too early: an earlier sequence hasn't arrived), and 429 (too many requests)
+    /// are temporary: try again later.
     /// Other 4xx mean billing rejected the data itself (400 validation, 409 conflict): retrying won't change the answer.
     /// </summary>
     public static bool IsRetryable(HttpStatusCode status) =>
-        (int)status >= 500 || status is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests;
+        (int)status >= 500 || status is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests
+        || (int)status == ContractStatusCodes.OutOfSequence;
 
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
 }
