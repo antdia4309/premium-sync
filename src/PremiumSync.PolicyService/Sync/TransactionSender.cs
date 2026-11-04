@@ -11,10 +11,27 @@ namespace PremiumSync.PolicyService.Sync;
 /// </summary>
 public class TransactionSender(BillingClient billing, IOptions<RetryOptions> options, TimeProvider clock)
 {
-    /// <summary>Sends and updates the transaction's sync fields. The caller saves changes.</summary>
+    /// <summary>
+    /// Sends and updates the transaction's sync fields. The caller saves changes.
+    /// Load the policy and all its transactions first: ordering depends on them.
+    /// </summary>
     public async Task SendAsync(PolicyTransaction txn, CancellationToken ct = default)
     {
         var policy = txn.Policy ?? throw new InvalidOperationException("Load the policy with the transaction before sending.");
+
+        // Ordering: never let a transaction reach billing ahead of an earlier one on the same policy.
+        var blocker = policy.Transactions
+            .Where(t => t.Sequence < txn.Sequence && t.SyncStatus != SyncStatus.Sent)
+            .OrderBy(t => t.Sequence)
+            .FirstOrDefault();
+        if (blocker is not null)
+        {
+            // Not an attempt, so it doesn't count toward MaxAttempts. The retry worker releases it once the blocker is Sent.
+            txn.SyncStatus = SyncStatus.Held;
+            txn.SyncError = $"Waiting for sequence {blocker.Sequence} ({blocker.SyncStatus}) to reach billing first.";
+            txn.NextAttemptAtUtc = null;
+            return;
+        }
         var message = new PolicyTransactionMessage(
             txn.TransactionId, policy.PolicyNumber, txn.Sequence, txn.Type,
             txn.EffectiveDate, txn.PremiumChange, txn.FeeAmount, policy.CommissionRate);

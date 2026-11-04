@@ -8,8 +8,9 @@ public enum PolicyStatus { InForce, Cancelled }
 /// Pending: saved, not sent yet. Sent: billing accepted it.
 /// Failed: a temporary problem (billing down, timeout); the retry worker will try again.
 /// DeadLettered: gave up (permanent rejection or too many attempts); needs a person to look at it.
+/// Held: waiting for an earlier transaction on the same policy to reach billing first.
 /// </summary>
-public enum SyncStatus { Pending, Sent, Failed, DeadLettered }
+public enum SyncStatus { Pending, Sent, Failed, DeadLettered, Held }
 
 public class Policy
 {

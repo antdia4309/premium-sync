@@ -1,3 +1,4 @@
+using PremiumSync.Contracts;
 using System.Net;
 using PremiumSync.PolicyService.Billing;
 using PremiumSync.PolicyService.Sync;
@@ -38,6 +39,7 @@ public class RetryPolicyTests
     [InlineData(HttpStatusCode.ServiceUnavailable, true)]
     [InlineData(HttpStatusCode.RequestTimeout, true)]
     [InlineData(HttpStatusCode.TooManyRequests, true)]
+    [InlineData((HttpStatusCode)ContractStatusCodes.OutOfSequence, true)]      // out of sequence: the earlier one may still arrive
     [InlineData(HttpStatusCode.BadRequest, false)]   // billing rejected the data
     [InlineData(HttpStatusCode.Conflict, false)]     // same TransactionId, different data
     [InlineData(HttpStatusCode.NotFound, false)]

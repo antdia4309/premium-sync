@@ -34,6 +34,20 @@ public static class BillingEndpoints
                     return Results.Conflict(new { error = "TransactionId was already used for a different transaction.", existing });
             }
 
+            // Ordering check: is this the next sequence we expect for this policy?
+            var lastBooked = await db.Transactions.Where(t => t.PolicyNumber == msg.PolicyNumber)
+                .MaxAsync(t => (int?)t.Sequence);
+            switch (SequenceCheck.Evaluate(lastBooked, msg.Sequence))
+            {
+                case SequenceResult.TooEarly:
+                    log.LogWarning("Out of order: {PolicyNumber} seq {Sequence} arrived, expected {Expected}",
+                        msg.PolicyNumber, msg.Sequence, SequenceCheck.Expected(lastBooked));
+                    return Results.Problem(statusCode: ContractStatusCodes.OutOfSequence, title: "Out of sequence",
+                        detail: $"Expected sequence {SequenceCheck.Expected(lastBooked)} for {msg.PolicyNumber}, received {msg.Sequence}.");
+                case SequenceResult.AlreadyUsed:
+                    return Results.Conflict(new { error = $"Sequence {msg.Sequence} is already booked for {msg.PolicyNumber} under a different TransactionId." });
+            }
+
             var row = new BillingTransaction
             {
                 SourceTransactionId = msg.TransactionId,

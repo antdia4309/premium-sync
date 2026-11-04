@@ -80,4 +80,53 @@ public class TransactionSenderTests
         Assert.Equal(SyncStatus.DeadLettered, txn.SyncStatus);
         Assert.Equal(3, txn.AttemptCount);
     }
+
+    // ---------- Ordering ----------
+
+    /// <summary>A policy with seq 1 in the given status and seq 2 waiting to send.</summary>
+    private static PolicyTransaction SecondTxnBehind(SyncStatus firstStatus)
+    {
+        var policy = new Policy { PolicyNumber = "PS-000001", CommissionRate = 0.15m };
+        policy.Transactions.Add(new PolicyTransaction { Policy = policy, Sequence = 1, Type = TransactionType.NewBusiness, SyncStatus = firstStatus });
+        var second = new PolicyTransaction { Policy = policy, Sequence = 2, Type = TransactionType.Endorsement, PremiumChange = 300m };
+        policy.Transactions.Add(second);
+        return second;
+    }
+
+    [Theory]
+    [InlineData(SyncStatus.Failed)]
+    [InlineData(SyncStatus.DeadLettered)]
+    [InlineData(SyncStatus.Held)]
+    public async Task Held_when_an_earlier_transaction_is_not_delivered(SyncStatus firstStatus)
+    {
+        var calls = 0;
+        var sender = SenderReturning(() => { calls++; return new HttpResponseMessage(HttpStatusCode.Created); });
+        var txn = SecondTxnBehind(firstStatus);
+
+        await sender.SendAsync(txn);
+
+        Assert.Equal(SyncStatus.Held, txn.SyncStatus);
+        Assert.Equal(0, calls);              // never reached billing
+        Assert.Equal(0, txn.AttemptCount);   // holding isn't an attempt
+        Assert.Contains("sequence 1", txn.SyncError);
+    }
+
+    [Fact]
+    public async Task Sends_once_the_earlier_transaction_is_delivered()
+    {
+        var txn = SecondTxnBehind(SyncStatus.Sent);
+        await SenderReturning(() => new HttpResponseMessage(HttpStatusCode.Created)).SendAsync(txn);
+
+        Assert.Equal(SyncStatus.Sent, txn.SyncStatus);
+    }
+
+    [Fact]
+    public async Task Too_early_from_billing_is_retried()
+    {
+        var txn = NewTxn();
+        await SenderReturning(() => new HttpResponseMessage((HttpStatusCode)ContractStatusCodes.OutOfSequence)).SendAsync(txn);
+
+        Assert.Equal(SyncStatus.Failed, txn.SyncStatus);
+        Assert.NotNull(txn.NextAttemptAtUtc);
+    }
 }
