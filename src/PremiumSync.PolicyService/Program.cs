@@ -33,7 +33,7 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    // Fine for Phase 1. Swap for EF migrations once the model settles.
+    // Creates the database on first run. Schema changes currently mean deleting the data folder; EF migrations would remove that step.
     scope.ServiceProvider.GetRequiredService<PolicyDbContext>().Database.EnsureCreated();
 }
 

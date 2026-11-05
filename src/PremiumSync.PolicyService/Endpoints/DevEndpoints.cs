@@ -1,4 +1,5 @@
 using PremiumSync.PolicyService.Billing;
+using PremiumSync.PolicyService.Data;
 using PremiumSync.PolicyService.Domain;
 
 namespace PremiumSync.PolicyService.Endpoints;
@@ -31,25 +32,25 @@ public static class DevEndpoints
                     CommissionRate: Rates[rng.Next(Rates.Length)]));
                 policies++;
                 var policyNumber = created.Transaction!.Policy!.PolicyNumber;
-                if (created.Transaction.SyncError is not null) failed++;
+                if (created.Transaction.SyncStatus != SyncStatus.Sent) failed++;
 
                 if (rng.NextDouble() < 0.40)
                 {
                     var r = await wf.EndorseAsync(policyNumber, new EndorseRequest(
                         eff.AddDays(rng.Next(15, 200)), AnnualPremiumChange: rng.Next(-20, 40) * 50m));
                     endorsements++;
-                    if (r.Transaction?.SyncError is not null) failed++;
+                    if (r.Transaction is { SyncStatus: not SyncStatus.Sent }) failed++;
                 }
 
                 if (rng.NextDouble() < 0.15)
                 {
                     var r = await wf.CancelAsync(policyNumber, new CancelRequest(eff.AddDays(rng.Next(201, 330))));
                     cancellations++;
-                    if (r.Transaction?.SyncError is not null) failed++;
+                    if (r.Transaction is { SyncStatus: not SyncStatus.Sent }) failed++;
                 }
             }
 
-            return Results.Ok(new { policies, endorsements, cancellations, failedToSend = failed });
+            return Results.Ok(new { policies, endorsements, cancellations, notSent = failed });
         }).WithTags("Dev").WithSummary("Generate test policies, endorsements, and cancellations");
 
         app.MapPost("/api/dev/drift-demo", async (PolicyWorkflow wf, BillingClient billing, int endorsements = 20) =>

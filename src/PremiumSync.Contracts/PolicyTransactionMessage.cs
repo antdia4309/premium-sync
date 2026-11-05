@@ -15,7 +15,7 @@ public enum TransactionType
 /// This is the integration contract: both sides must agree on it.
 /// </summary>
 public record PolicyTransactionMessage(
-    Guid TransactionId,        // unique per transaction; becomes the idempotency key in Phase 2
+    Guid TransactionId,        // unique per transaction; billing uses it as the idempotency key
     string PolicyNumber,
     int Sequence,              // 1 = new business, then 2, 3... in the order they happened
     TransactionType Type,
