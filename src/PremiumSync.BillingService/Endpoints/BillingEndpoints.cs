@@ -50,6 +50,14 @@ public static class BillingEndpoints
                     return Results.Conflict(new { error = $"Sequence {msg.Sequence} is already booked for {msg.PolicyNumber} under a different TransactionId." });
             }
 
+            // Account-level check: the policy's total premium can never go negative.
+            var accountErrors = TransactionValidator.ValidateAgainstAccount(prior.Sum(t => t.Premium), msg);
+            if (accountErrors.Count > 0)
+            {
+                log.LogWarning("Rejected {TransactionId} for {PolicyNumber}: account premium would go negative", msg.TransactionId, msg.PolicyNumber);
+                return Results.ValidationProblem(accountErrors);
+            }
+
             var row = new BillingTransaction
             {
                 SourceTransactionId = msg.TransactionId,

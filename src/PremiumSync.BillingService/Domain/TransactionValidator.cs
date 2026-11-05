@@ -41,4 +41,16 @@ public static class TransactionValidator
 
         return errors.ToDictionary(e => e.Key, e => e.Value.ToArray());
     }
+
+    /// <summary>
+    /// Checks against what's already booked for the policy. Billing never lets an account's premium go negative,
+    /// even if the sender allowed it: that would refund more than was ever charged.
+    /// </summary>
+    public static Dictionary<string, string[]> ValidateAgainstAccount(decimal premiumBooked, PolicyTransactionMessage m)
+    {
+        var after = premiumBooked + m.PremiumChange;
+        return after < 0
+            ? new() { [nameof(m.PremiumChange)] = [$"Would bring {m.PolicyNumber}'s total premium to {after:0.00}. Account premium can't go below 0.00."] }
+            : [];
+    }
 }

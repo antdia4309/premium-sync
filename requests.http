@@ -167,3 +167,61 @@ GET {{policy}}/api/policies/{{orderPolicy}}
 
 ### Commission drift: $1,000 at 12.5% plus 20 endorsements of +$1.00. Compares policy vs. billing commission.
 POST {{policy}}/api/dev/drift-demo?endorsements=20
+
+### ---------- Phase 2: $0 and boundary transactions ----------
+### Bind a fresh policy for these (set @edgePolicy to the number it returns)
+@edgePolicy = PS-000001
+
+POST {{policy}}/api/policies
+Content-Type: application/json
+
+{
+  "insuredName": "Edge Case LLC",
+  "effectiveDate": "2026-01-01",
+  "annualPremium": 1200,
+  "feeAmount": 0,
+  "commissionRate": 0.15
+}
+
+### A. Reduce premium below $0 (annual -2,000 on a 1,200 policy)
+POST {{policy}}/api/policies/{{edgePolicy}}/endorsements
+Content-Type: application/json
+
+{
+  "effectiveDate": "2026-01-01",
+  "annualPremiumChange": -2000
+}
+
+### B. Cancel the policy (send AFTER A to see the knock-on effect)
+POST {{policy}}/api/policies/{{edgePolicy}}/cancel
+Content-Type: application/json
+
+{
+  "effectiveDate": "2026-06-01"
+}
+
+### C. Cancel on the expiration date (use a different fresh policy number)
+POST {{policy}}/api/policies/PS-000002/cancel
+Content-Type: application/json
+
+{
+  "effectiveDate": "2027-01-01"
+}
+
+### What billing has for the edge-case policy
+GET {{billing}}/api/billing/accounts/{{edgePolicy}}
+
+### Billing guard: a direct endorsement that would take the account below $0 (should be 400 after the fix)
+POST {{billing}}/api/inbound/transactions
+Content-Type: application/json
+
+{
+  "transactionId": "33333333-3333-3333-3333-333333333333",
+  "policyNumber": "{{edgePolicy}}",
+  "sequence": 2,
+  "type": "Endorsement",
+  "effectiveDate": "2026-01-01",
+  "premiumChange": -2000,
+  "feeAmount": 0,
+  "commissionRate": 0.15
+}

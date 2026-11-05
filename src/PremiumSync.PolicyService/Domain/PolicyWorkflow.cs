@@ -47,7 +47,12 @@ public class PolicyWorkflow(PolicyDbContext db, TransactionSender sender)
         var policy = await LoadAsync(policyNumber, ct);
         if (policy is null) return WorkflowResult.Missing();
         if (policy.Status == PolicyStatus.Cancelled) return WorkflowResult.Invalid("policy", "Policy is cancelled.");
-        if (!InTerm(policy, req.EffectiveDate)) return WorkflowResult.Invalid(nameof(req.EffectiveDate), "Effective date must fall within the policy term.");
+        if (PolicyRules.CheckChangeDate(policy, req.EffectiveDate, "An endorsement") is { } dateError)
+            return WorkflowResult.Invalid(nameof(req.EffectiveDate), dateError);
+
+        var proratedChange = PremiumMath.ProRata(req.AnnualPremiumChange, policy.EffectiveDate, policy.ExpirationDate, req.EffectiveDate);
+        if (PolicyRules.CheckWrittenPremium(policy.WrittenPremium, proratedChange) is { } premiumError)
+            return WorkflowResult.Invalid(nameof(req.AnnualPremiumChange), premiumError);
 
         var txn = new PolicyTransaction
         {
@@ -55,7 +60,7 @@ public class PolicyWorkflow(PolicyDbContext db, TransactionSender sender)
             Sequence = NextSequence(policy),
             Type = TransactionType.Endorsement,
             EffectiveDate = req.EffectiveDate,
-            PremiumChange = PremiumMath.ProRata(req.AnnualPremiumChange, policy.EffectiveDate, policy.ExpirationDate, req.EffectiveDate),
+            PremiumChange = proratedChange,
             FeeAmount = Math.Round(req.FeeAmount, 2),
         };
         return await SaveAndSendAsync(policy, txn, ct);
@@ -66,7 +71,8 @@ public class PolicyWorkflow(PolicyDbContext db, TransactionSender sender)
         var policy = await LoadAsync(policyNumber, ct);
         if (policy is null) return WorkflowResult.Missing();
         if (policy.Status == PolicyStatus.Cancelled) return WorkflowResult.Invalid("policy", "Policy is already cancelled.");
-        if (!InTerm(policy, req.EffectiveDate)) return WorkflowResult.Invalid(nameof(req.EffectiveDate), "Cancellation date must fall within the policy term.");
+        if (PolicyRules.CheckChangeDate(policy, req.EffectiveDate, "A cancellation") is { } dateError)
+            return WorkflowResult.Invalid(nameof(req.EffectiveDate), dateError);
 
         policy.Status = PolicyStatus.Cancelled;
         var txn = new PolicyTransaction
@@ -97,8 +103,6 @@ public class PolicyWorkflow(PolicyDbContext db, TransactionSender sender)
 
     private Task<Policy?> LoadAsync(string policyNumber, CancellationToken ct) =>
         db.Policies.Include(p => p.Transactions).FirstOrDefaultAsync(p => p.PolicyNumber == policyNumber, ct);
-
-    private static bool InTerm(Policy p, DateOnly d) => d >= p.EffectiveDate && d <= p.ExpirationDate;
 
     private static int NextSequence(Policy p) => p.Transactions.Count == 0 ? 1 : p.Transactions.Max(t => t.Sequence) + 1;
 }

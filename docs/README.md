@@ -8,6 +8,7 @@ Root cause analyses for each failure scenario in the project.
 | [002](rca-002-billing-outage.md) | Transactions stuck when billing is unavailable | Retry worker with backoff + error queue |
 | [003](rca-003-out-of-order.md) | Transactions reach billing out of order | Sender holds + billing sequence check |
 | [004](rca-004-rounding-drift.md) | Cancellation return and commission drift | Per-transaction unearned share + cumulative commission |
+| [005](rca-005-zero-and-boundary.md) | Negative premium and $0 boundary transactions | Change-date rules + premium floor on both sides |
 
 ## RCA template
 
