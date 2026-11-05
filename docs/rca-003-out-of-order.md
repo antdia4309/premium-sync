@@ -33,3 +33,5 @@ Billing's check runs after the idempotency check (RCA 001), so a retry of someth
 
 ## Known limitation
 A transaction held behind one in the error queue stays held until someone resends the blocker. That's intentional (sending it would recreate the bug), and it's visible at `GET /api/sync/held` with the reason.
+
+> Note: premium figures in this RCA reflect the cancellation math before [RCA 004](rca-004-rounding-drift.md) corrected it.

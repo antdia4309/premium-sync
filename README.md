@@ -51,14 +51,17 @@ dotnet test
 ## Roadmap
 
 - [x] **Phase 1, happy path:** policy and billing services, contract validation, proration, commission, tests
-- [ ] **Phase 2, realistic failures** (in progress)
+- [x] **Phase 2, realistic failures**
   - [x] Duplicate submissions → idempotency check + unique index ([RCA 001](docs/rca-001-duplicate-billing.md))
   - [x] Billing outages → automatic retries with backoff and an error queue ([RCA 002](docs/rca-002-billing-outage.md))
   - [x] Out-of-order transactions → sender holds behind earlier sequences, billing enforces order ([RCA 003](docs/rca-003-out-of-order.md))
   - [x] Rounding drift → exact per-transaction cancellation return and cumulative commission ([RCA 004](docs/rca-004-rounding-drift.md))
-  - [ ] Multi-period and $0 cancellation edge cases
+  - [x] Negative premium and $0 boundary transactions → change-date rules, premium floor on both sides ([RCA 005](docs/rca-005-zero-and-boundary.md))
 - [ ] **Phase 3, reconciliation:** SQL report comparing policy vs. billing with mismatch reason codes, a small React dashboard
 - [ ] **Phase 4, write-ups:** RCA docs for each failure scenario in `/docs`
+
+### Backlog
+- Multi-period (multi-year) policies: period numbers in the contract, per-period proration and reconciliation
 
 ## Project layout
 
@@ -81,4 +84,5 @@ docs/                          RCA write-ups (Phase 2+)
 - **Cancellation returns each transaction's own unearned share** (based on the days that transaction covered), added unrounded and rounded once.
 - **Commission is cumulative:** each transaction's commission is the commission on all premium to date minus what's already booked, so per-transaction rounding can't drift the total.
 - **Order is guaranteed per policy.** The policy system won't send a transaction while an earlier one on the same policy is undelivered (it's `Held` instead), and billing only books the next expected sequence, answering anything that skips ahead with `425 Too Early`.
+- **Bad changes are rejected before anything changes.** Endorsements and cancellations must take effect before expiration, and written premium can't go below $0.00. Billing enforces the same floor on its side. A rejected request leaves both systems untouched.
 - **Billing is idempotent.** Every transaction carries a `TransactionId`. A retry with the same ID and data returns the original result without booking anything new; the same ID with different data is rejected with `409 Conflict`. A unique index backs this up at the database level.
