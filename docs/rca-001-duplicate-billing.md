@@ -4,7 +4,7 @@
 A policy's billing account showed 2 transactions and $360.00 commission for a single new business transaction. Expected: 1 transaction and $180.00 commission.
 
 ## How it was caught
-Sent the same `PolicyTransactionMessage` (same `TransactionId`) to `/api/inbound/transactions` twice, simulating a sender retry after a timeout. Both calls returned [201 Created], and `GET /api/billing/accounts/PS-DUP-001` showed both rows.
+Sent the same `PolicyTransactionMessage` (same `TransactionId`) to `/api/inbound/transactions` twice, simulating a sender retry after a timeout. Both calls returned 201 Created, and `GET /api/billing/accounts/PS-DUP-001` showed both rows.
 
 ## Root cause
 Billing treated every inbound message as new. Nothing checked whether a `TransactionId` had already been booked, and the index on `SourceTransactionId` wasn't unique, so the database accepted the second copy too.

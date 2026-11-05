@@ -1,6 +1,5 @@
 # RCA 004: Cancellation return premium and commission drift
 
-> Confirm the numbers below match what you saw, add your lesson, then delete this line.
 
 Two money bugs with the same theme: a calculation that's right for the simple case and quietly wrong once a policy has more than one transaction.
 

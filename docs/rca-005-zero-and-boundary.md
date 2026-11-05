@@ -1,6 +1,5 @@
 # RCA 005: Negative premium and $0 boundary transactions
 
-> Confirm the numbers below match what you saw, add your lesson, then delete this line.
 
 ## Symptom
 Probing the edges of the policy rules turned up three bugs, one of which left the two systems permanently out of sync:

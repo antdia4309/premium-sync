@@ -15,13 +15,15 @@ A mock **policy system** binds, endorses, and cancels policies. Every premium-be
 
 I've spent 10 years in P&C insurance, most recently as a business analyst tracing premium, fee, and commission discrepancies across integrated policy, billing, and finance systems. This project rebuilds that problem space from the code side. All data is synthetic and every scenario is generic.
 
-## What's in Phase 1
+## What it does
 
-- **Policy Service**: new business, pro-rata endorsements, pro-rata cancellations. Each transaction is saved first, then sent to billing, with its sync status (`Sent` / `Failed`) recorded.
-- **Billing Service**: one inbound endpoint that enforces the contract (sequence rules, sign rules, whole cents, commission rate range) and rejects bad messages with a 400 and field-level errors.
-- **Shared contract** (`PremiumSync.Contracts`): the message both sides agree on.
-- **Unit tests** for proration, commission rounding, and contract validation.
-- **Seed endpoint** that generates realistic test policies.
+- **Policy Service:** new business, pro-rata endorsements, and pro-rata cancellations. Every transaction is saved first, then sent to billing, and its delivery status is tracked (`Sent`, `Failed`, `Held`, `DeadLettered`).
+- **Billing Service:** one inbound endpoint that enforces the integration contract (sequence order, sign rules, whole cents, commission rate range, no negative balances), books premium, and calculates commission.
+- **Shared contract** (`PremiumSync.Contracts`): the message and status codes both sides agree on.
+- **Failure handling:** idempotent billing, background retries with exponential backoff, an error queue with manual resend, and per-policy ordering.
+- **Sync endpoints** (`/api/sync/...`): delivery status counts, retrying, held, and error-queue views.
+- **77 unit tests** covering proration, cancellation math, commission, contract validation, retries, ordering, and business rules. CI runs them on every push.
+- **Dev endpoints** that generate realistic test policies and demonstrate commission drift.
 
 ## Run it
 
@@ -58,7 +60,7 @@ dotnet test
   - [x] Rounding drift → exact per-transaction cancellation return and cumulative commission ([RCA 004](docs/rca-004-rounding-drift.md))
   - [x] Negative premium and $0 boundary transactions → change-date rules, premium floor on both sides ([RCA 005](docs/rca-005-zero-and-boundary.md))
 - [ ] **Phase 3, reconciliation:** SQL report comparing policy vs. billing with mismatch reason codes, a small React dashboard
-- [ ] **Phase 4, write-ups:** RCA docs for each failure scenario in `/docs`
+- [x] **Write-ups:** a root cause analysis for every failure scenario ([docs](docs/README.md))
 
 ### Backlog
 - Multi-period (multi-year) policies: period numbers in the contract, per-period proration and reconciliation
