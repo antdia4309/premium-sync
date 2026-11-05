@@ -9,6 +9,8 @@ public record SendResult(bool Ok, string? Error, bool Retryable)
     public static readonly SendResult Success = new(true, null, false);
 }
 
+public record BillingTotals(decimal TotalPremium, decimal TotalCommission, int TransactionCount);
+
 /// <summary>Sends transactions to the billing service's inbound endpoint.</summary>
 public class BillingClient(HttpClient http)
 {
@@ -42,6 +44,15 @@ public class BillingClient(HttpClient http)
     public static bool IsRetryable(HttpStatusCode status) =>
         (int)status >= 500 || status is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests
         || (int)status == ContractStatusCodes.OutOfSequence;
+
+    /// <summary>Billing's totals for one policy, or null if billing has nothing for it.</summary>
+    public async Task<BillingTotals?> GetTotalsAsync(string policyNumber, CancellationToken ct = default)
+    {
+        var response = await http.GetAsync($"/api/billing/accounts/{Uri.EscapeDataString(policyNumber)}", ct);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<BillingTotals>(ContractJson.Options, ct);
+    }
 
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
 }

@@ -18,9 +18,30 @@ public static class PremiumMath
 
     /// <summary>
     /// Return premium on a pro-rata cancellation, as a negative number.
-    /// Simplification: applies the remaining-term fraction to total written premium.
-    /// That's exact when there are no endorsements; Phase 2 is a good time to make it exact for every case.
+    /// Each transaction covers its own slice of the term (from its effective date to expiration),
+    /// so each one returns its own unearned share:
+    ///   - cancel on or before a transaction's effective date: return all of it
+    ///   - cancel after: return premium x (days left after cancel / days that transaction covered)
+    /// The shares are added up unrounded and rounded once, so rounding can't stack up across transactions.
     /// </summary>
-    public static decimal CancellationReturn(decimal writtenPremium, DateOnly termStart, DateOnly termEnd, DateOnly cancelDate)
-        => -ProRata(writtenPremium, termStart, termEnd, cancelDate);
+    public static decimal CancellationReturn(IEnumerable<(decimal Premium, DateOnly Effective)> transactions,
+        DateOnly termEnd, DateOnly cancelDate)
+    {
+        decimal unearned = 0m;
+        foreach (var (premium, effective) in transactions)
+        {
+            if (cancelDate <= effective)
+            {
+                unearned += premium;
+                continue;
+            }
+
+            decimal coveredDays = termEnd.DayNumber - effective.DayNumber;
+            if (coveredDays <= 0) continue;   // effective on the expiration date: nothing left to return
+            decimal remainingDays = Math.Max(0, termEnd.DayNumber - cancelDate.DayNumber);
+            unearned += premium * remainingDays / coveredDays;
+        }
+
+        return -Math.Round(unearned, 2, MidpointRounding.AwayFromZero);
+    }
 }
