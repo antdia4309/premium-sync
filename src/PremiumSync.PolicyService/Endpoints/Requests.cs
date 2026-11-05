@@ -25,9 +25,10 @@ public record TransactionDto(Guid TransactionId, int Sequence, string Type, Date
 }
 
 public record PolicyDto(string PolicyNumber, string InsuredName, DateOnly EffectiveDate, DateOnly ExpirationDate,
-    decimal CommissionRate, string Status, decimal WrittenPremium, List<TransactionDto> Transactions)
+    decimal CommissionRate, string Status, decimal WrittenPremium, decimal ExpectedCommission, List<TransactionDto> Transactions)
 {
     public static PolicyDto From(Policy p) => new(p.PolicyNumber, p.InsuredName, p.EffectiveDate, p.ExpirationDate,
         p.CommissionRate, p.Status.ToString(), p.WrittenPremium,
+        Math.Round(p.WrittenPremium * p.CommissionRate, 2, MidpointRounding.AwayFromZero),
         p.Transactions.OrderBy(t => t.Sequence).Select(TransactionDto.From).ToList());
 }

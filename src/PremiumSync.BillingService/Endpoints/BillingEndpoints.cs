@@ -34,9 +34,11 @@ public static class BillingEndpoints
                     return Results.Conflict(new { error = "TransactionId was already used for a different transaction.", existing });
             }
 
+            // Everything already booked for this policy: used for the ordering check and cumulative commission.
+            var prior = await db.Transactions.Where(t => t.PolicyNumber == msg.PolicyNumber).ToListAsync();
+            int? lastBooked = prior.Count == 0 ? null : prior.Max(t => t.Sequence);
+
             // Ordering check: is this the next sequence we expect for this policy?
-            var lastBooked = await db.Transactions.Where(t => t.PolicyNumber == msg.PolicyNumber)
-                .MaxAsync(t => (int?)t.Sequence);
             switch (SequenceCheck.Evaluate(lastBooked, msg.Sequence))
             {
                 case SequenceResult.TooEarly:
@@ -58,7 +60,7 @@ public static class BillingEndpoints
                 Premium = msg.PremiumChange,
                 FeeAmount = msg.FeeAmount,
                 CommissionRate = msg.CommissionRate,
-                CommissionAmount = CommissionCalculator.Calculate(msg.PremiumChange, msg.CommissionRate),
+                CommissionAmount = CommissionFor(prior, msg),
             };
             db.Transactions.Add(row);
             try
@@ -95,5 +97,19 @@ public static class BillingEndpoints
         g.MapGet("/transactions", async (BillingDbContext db, int take = 50) =>
             Results.Ok(await db.Transactions.OrderByDescending(t => t.Id).Take(Math.Clamp(take, 1, 500)).ToListAsync()))
             .WithSummary("Most recent billing transactions");
+    }
+
+    /// <summary>
+    /// Cumulative commission keeps the policy's commission total exact (no penny drift).
+    /// It assumes one commission rate per policy; if the rate ever changes mid-policy,
+    /// fall back to per-transaction commission rather than spreading the new rate over old premium.
+    /// </summary>
+    private static decimal CommissionFor(List<BillingTransaction> prior, PolicyTransactionMessage msg)
+    {
+        if (prior.Any(t => t.CommissionRate != msg.CommissionRate))
+            return CommissionCalculator.Calculate(msg.PremiumChange, msg.CommissionRate);
+
+        return CommissionCalculator.Cumulative(
+            prior.Sum(t => t.Premium), prior.Sum(t => t.CommissionAmount), msg.PremiumChange, msg.CommissionRate);
     }
 }

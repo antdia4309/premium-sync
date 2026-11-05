@@ -75,7 +75,8 @@ public class PolicyWorkflow(PolicyDbContext db, TransactionSender sender)
             Sequence = NextSequence(policy),
             Type = TransactionType.Cancellation,
             EffectiveDate = req.EffectiveDate,
-            PremiumChange = PremiumMath.CancellationReturn(policy.WrittenPremium, policy.EffectiveDate, policy.ExpirationDate, req.EffectiveDate),
+            PremiumChange = PremiumMath.CancellationReturn(
+                policy.Transactions.Select(t => (t.PremiumChange, t.EffectiveDate)), policy.ExpirationDate, req.EffectiveDate),
             FeeAmount = 0m,
         };
         return await SaveAndSendAsync(policy, txn, ct);

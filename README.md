@@ -55,7 +55,7 @@ dotnet test
   - [x] Duplicate submissions → idempotency check + unique index ([RCA 001](docs/rca-001-duplicate-billing.md))
   - [x] Billing outages → automatic retries with backoff and an error queue ([RCA 002](docs/rca-002-billing-outage.md))
   - [x] Out-of-order transactions → sender holds behind earlier sequences, billing enforces order ([RCA 003](docs/rca-003-out-of-order.md))
-  - [ ] Rounding drift on prorated changes
+  - [x] Rounding drift → exact per-transaction cancellation return and cumulative commission ([RCA 004](docs/rca-004-rounding-drift.md))
   - [ ] Multi-period and $0 cancellation edge cases
 - [ ] **Phase 3, reconciliation:** SQL report comparing policy vs. billing with mismatch reason codes, a small React dashboard
 - [ ] **Phase 4, write-ups:** RCA docs for each failure scenario in `/docs`
@@ -78,6 +78,7 @@ docs/                          RCA write-ups (Phase 2+)
 - **Billing doesn't trust the sender.** All contract rules are enforced on the receiving side.
 - **Failures are classified, retried, then parked.** Temporary failures (billing down, timeouts, 5xx) retry automatically in the background with exponential backoff. Permanent rejections (400, 409) and transactions that run out of attempts go to an error queue for a person to review and resend.
 - **Money is `decimal`, rounded to cents, half away from zero**, and that rule is covered by tests on both positive and negative amounts.
-- **Known simplification:** cancellation return premium applies the remaining-term fraction to total written premium. That's exact without endorsements; making it exact for endorsed policies is a Phase 2 task.
+- **Cancellation returns each transaction's own unearned share** (based on the days that transaction covered), added unrounded and rounded once.
+- **Commission is cumulative:** each transaction's commission is the commission on all premium to date minus what's already booked, so per-transaction rounding can't drift the total.
 - **Order is guaranteed per policy.** The policy system won't send a transaction while an earlier one on the same policy is undelivered (it's `Held` instead), and billing only books the next expected sequence, answering anything that skips ahead with `425 Too Early`.
 - **Billing is idempotent.** Every transaction carries a `TransactionId`. A retry with the same ID and data returns the original result without booking anything new; the same ID with different data is rejected with `409 Conflict`. A unique index backs this up at the database level.

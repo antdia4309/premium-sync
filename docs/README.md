@@ -7,6 +7,7 @@ Root cause analyses for each failure scenario in the project.
 | [001](rca-001-duplicate-billing.md) | Duplicate submission double-books premium and commission | Idempotency check + unique index |
 | [002](rca-002-billing-outage.md) | Transactions stuck when billing is unavailable | Retry worker with backoff + error queue |
 | [003](rca-003-out-of-order.md) | Transactions reach billing out of order | Sender holds + billing sequence check |
+| [004](rca-004-rounding-drift.md) | Cancellation return and commission drift | Per-transaction unearned share + cumulative commission |
 
 ## RCA template
 
