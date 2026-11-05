@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\PremiumSync.BillingService\PremiumSync.BillingService.csproj" />
     <ProjectReference Include="..\..\src\PremiumSync.PolicyService\PremiumSync.PolicyService.csproj" />
+    <ProjectReference Include="..\..\src\PremiumSync.Reconciliation\PremiumSync.Reconciliation.csproj" />
   </ItemGroup>
 
 </Project>

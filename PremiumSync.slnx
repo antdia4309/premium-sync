@@ -3,6 +3,7 @@
     <Project Path="src/PremiumSync.BillingService/PremiumSync.BillingService.csproj" />
     <Project Path="src/PremiumSync.Contracts/PremiumSync.Contracts.csproj" />
     <Project Path="src/PremiumSync.PolicyService/PremiumSync.PolicyService.csproj" />
+    <Project Path="src/PremiumSync.Reconciliation/PremiumSync.Reconciliation.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PremiumSync.Tests/PremiumSync.Tests.csproj" />

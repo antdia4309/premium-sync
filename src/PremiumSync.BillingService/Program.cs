@@ -17,7 +17,8 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    scope.ServiceProvider.GetRequiredService<BillingDbContext>().Database.EnsureCreated();
+    // Applies any pending EF migrations (creates the database on first run).
+    scope.ServiceProvider.GetRequiredService<BillingDbContext>().Database.Migrate();
 }
 
 if (app.Environment.IsDevelopment())
