@@ -8,7 +8,11 @@ A mock **policy system** binds, endorses, and cancels policies. Every premium-be
 [Policy Service :5001] --PolicyTransactionMessage--> [Billing Service :5002]
   bind, endorse, cancel                               validate, book premium,
   prorate premium                                     calculate commission
-  track sync status                                   ledger per policy
+  retries, ordering, error queue                      ledger per policy
+          \                                                 /
+           '--------> [Reconciliation :5003] <-------------'
+                       SQL across both databases:
+                       what doesn't match, and why
 ```
 
 ## Why I built it
@@ -22,7 +26,8 @@ I've spent 10 years in P&C insurance, most recently as a business analyst tracin
 - **Shared contract** (`PremiumSync.Contracts`): the message and status codes both sides agree on.
 - **Failure handling:** idempotent billing, background retries with exponential backoff, an error queue with manual resend, and per-policy ordering.
 - **Sync endpoints** (`/api/sync/...`): delivery status counts, retrying, held, and error-queue views.
-- **77 unit tests** covering proration, cancellation math, commission, contract validation, retries, ordering, and business rules. CI runs them on every push.
+- **89 tests** covering proration, cancellation math, commission, contract validation, retries, ordering, business rules, and the reconciliation SQL against real databases. CI runs them on every push.
+- **Reconciliation Service:** compares the two databases with SQL and reports every mismatch with a reason code. Each run is saved with its findings.
 - **Dev endpoints** that generate realistic test policies and demonstrate commission drift.
 
 ## Run it
@@ -50,6 +55,21 @@ Run the tests:
 dotnet test
 ```
 
+## Reconciliation
+
+`POST /api/recon/runs` attaches both SQLite databases to one connection and runs the queries in [`src/PremiumSync.Reconciliation/Sql`](src/PremiumSync.Reconciliation/Sql). Every finding gets a reason code:
+
+| Reason code | Level | Meaning |
+|-------------|-------|---------|
+| `MissingInBilling` | Transaction | Policy system marked it Sent; billing has no record of it |
+| `StuckInQueue` | Transaction | Undelivered (Failed, Held, DeadLettered) longer than the cutoff |
+| `MissingInPolicy` | Transaction | Billing booked something the policy system doesn't have |
+| `PremiumMismatch` / `FeeMismatch` | Transaction | Same transaction, different amount |
+| `CommissionMismatch` | Policy | Booked commission ≠ written premium × rate (fully synced policies only) |
+| `StatusMismatch` | Policy | The systems disagree on whether the policy is cancelled |
+
+Money is compared in integer cents, and expected commission is calculated with integer math, so SQL rounds exactly the way the C# code does.
+
 ## Roadmap
 
 - [x] **Phase 1, happy path:** policy and billing services, contract validation, proration, commission, tests
@@ -59,7 +79,10 @@ dotnet test
   - [x] Out-of-order transactions → sender holds behind earlier sequences, billing enforces order ([RCA 003](docs/rca-003-out-of-order.md))
   - [x] Rounding drift → exact per-transaction cancellation return and cumulative commission ([RCA 004](docs/rca-004-rounding-drift.md))
   - [x] Negative premium and $0 boundary transactions → change-date rules, premium floor on both sides ([RCA 005](docs/rca-005-zero-and-boundary.md))
-- [ ] **Phase 3, reconciliation:** SQL report comparing policy vs. billing with mismatch reason codes, a small React dashboard
+- [ ] **Phase 3, reconciliation** (in progress)
+  - [x] Reconciliation service: SQL comparison with reason codes, saved run history, EF migrations for all databases
+  - [ ] Injected discrepancies and an independent earned-premium check
+  - [ ] React dashboard
 - [x] **Write-ups:** a root cause analysis for every failure scenario ([docs](docs/README.md))
 
 ### Backlog
@@ -72,6 +95,7 @@ src/
   PremiumSync.Contracts/       shared message contract
   PremiumSync.PolicyService/   policy system (port 5001)
   PremiumSync.BillingService/  billing system (port 5002)
+  PremiumSync.Reconciliation/  reconciliation (port 5003); SQL lives in Sql/
 tests/
   PremiumSync.Tests/           xUnit tests
 docs/                          RCA write-ups (Phase 2+)
@@ -87,4 +111,5 @@ docs/                          RCA write-ups (Phase 2+)
 - **Commission is cumulative:** each transaction's commission is the commission on all premium to date minus what's already booked, so per-transaction rounding can't drift the total.
 - **Order is guaranteed per policy.** The policy system won't send a transaction while an earlier one on the same policy is undelivered (it's `Held` instead), and billing only books the next expected sequence, answering anything that skips ahead with `425 Too Early`.
 - **Bad changes are rejected before anything changes.** Endorsements and cancellations must take effect before expiration, and written premium can't go below $0.00. Billing enforces the same floor on its side. A rejected request leaves both systems untouched.
+- **Schema changes use EF Core migrations.** Each service applies pending migrations on startup.
 - **Billing is idempotent.** Every transaction carries a `TransactionId`. A retry with the same ID and data returns the original result without booking anything new; the same ID with different data is rejected with `409 Conflict`. A unique index backs this up at the database level.

@@ -1,6 +1,7 @@
 # Open in VS Code with the REST Client extension and click "Send Request".
 @policy = http://localhost:5001
 @billing = http://localhost:5002
+@recon = http://localhost:5003
 
 ### Bind a new policy
 POST {{policy}}/api/policies
@@ -225,3 +226,23 @@ Content-Type: application/json
   "feeAmount": 0,
   "commissionRate": 0.15
 }
+
+### ========== Phase 3: reconciliation ==========
+
+### Run a reconciliation now (policy and billing must have been started at least once)
+POST {{recon}}/api/recon/runs
+
+### Most recent run: counts by reason code
+GET {{recon}}/api/recon/runs/latest
+
+### Run history
+GET {{recon}}/api/recon/runs
+
+### Findings for a run (change the run id)
+GET {{recon}}/api/recon/runs/3/findings
+
+### Only one reason code: MissingInBilling, StuckInQueue, MissingInPolicy, PremiumMismatch, FeeMismatch, CommissionMismatch, StatusMismatch
+GET {{recon}}/api/recon/runs/1/findings?reason=StuckInQueue
+
+### Only one policy
+GET {{recon}}/api/recon/runs/1/findings?policy=PS-000001

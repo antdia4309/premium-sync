@@ -2,17 +2,34 @@
   "name": "Premium Sync (.NET 10)",
   "image": "mcr.microsoft.com/devcontainers/dotnet:1-10.0",
   "features": {
-    "ghcr.io/devcontainers/features/node:1": { "version": "lts" }
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
   },
-  "forwardPorts": [5001, 5002],
+  "forwardPorts": [
+    5001,
+    5002,
+    5003
+  ],
   "portsAttributes": {
-    "5001": { "label": "Policy Service" },
-    "5002": { "label": "Billing Service" }
+    "5001": {
+      "label": "Policy Service"
+    },
+    "5002": {
+      "label": "Billing Service"
+    },
+    "5003": {
+      "label": "Reconciliation"
+    }
   },
   "postCreateCommand": "dotnet restore && dotnet build",
   "customizations": {
     "vscode": {
-      "extensions": ["ms-dotnettools.csdevkit", "humao.rest-client", "qwtel.sqlite-viewer"]
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "humao.rest-client",
+        "qwtel.sqlite-viewer"
+      ]
     }
   }
 }
