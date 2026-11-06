@@ -7,6 +7,7 @@
     }
   },
   "forwardPorts": [
+    5173,
     5001,
     5002,
     5003
@@ -20,9 +21,13 @@
     },
     "5003": {
       "label": "Reconciliation"
+    },
+    "5173": {
+      "label": "Dashboard",
+      "onAutoForward": "openBrowser"
     }
   },
-  "postCreateCommand": "dotnet restore && dotnet build",
+  "postCreateCommand": "dotnet restore && dotnet build && cd dashboard && npm install --no-audit --no-fund",
   "customizations": {
     "vscode": {
       "extensions": [

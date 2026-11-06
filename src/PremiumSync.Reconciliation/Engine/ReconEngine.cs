@@ -34,7 +34,7 @@ public static class ReconEngine
 
         foreach (var r in Query(conn, "stuck_in_queue", ("@cutoffUtc", cutoff)))
             findings.Add(Finding(ReasonCode.StuckInQueue, r, policyCents: r.Cents("PolicyCents"), billingCents: null,
-                $"{r.Str("SyncStatus")} since {r.Str("CreatedAtUtc")} UTC. {r.Str("SyncError")}".Trim()));
+                $"{r.Str("SyncStatus")} since {When(r.Str("CreatedAtUtc"))}. {r.Str("SyncError")}".Trim()));
 
         foreach (var r in Query(conn, "missing_in_policy"))
             findings.Add(Finding(ReasonCode.MissingInPolicy, r, policyCents: null, billingCents: r.Cents("BillingCents"),
@@ -52,7 +52,7 @@ public static class ReconEngine
 
         foreach (var r in Query(conn, "commission_mismatch"))
             findings.Add(Finding(ReasonCode.CommissionMismatch, r, r.Cents("ExpectedCommissionCents"), r.Cents("BookedCommissionCents"),
-                "Commission booked in billing doesn't match written premium x commission rate."));
+                $"Billing booked {Money(r.Cents("BookedCommissionCents"))} in commission; written premium times the rate is {Money(r.Cents("ExpectedCommissionCents"))}."));
 
         foreach (var r in Query(conn, "status_mismatch", ("@cutoffUtc", cutoff)))
             findings.Add(Finding(ReasonCode.StatusMismatch, r, null, null,
@@ -60,7 +60,7 @@ public static class ReconEngine
 
         foreach (var r in Query(conn, "earned_premium_mismatch"))
             findings.Add(Finding(ReasonCode.EarnedPremiumMismatch, r, r.Cents("ExpectedCents"), r.Cents("WrittenCents"),
-                "Written premium doesn't match an independent recalculation from the annual amounts. Policy value = expected; billing value = written."));
+                $"Both systems show {Money(r.Cents("WrittenCents"))} written premium, but recalculating from the annual amounts gives {Money(r.Cents("ExpectedCents"))}."));
 
         var policies = Scalar(conn, "SELECT COUNT(*) FROM pol.Policies");
         var transactions = Scalar(conn, "SELECT COUNT(*) FROM pol.Transactions");
@@ -82,6 +82,14 @@ public static class ReconEngine
             Detail = detail,
         };
     }
+
+    private static string Money(long cents) =>
+        (cents < 0 ? "-$" : "$") + (Math.Abs(cents) / 100m).ToString("N2", CultureInfo.InvariantCulture);
+
+    private static string When(string? sqliteUtc) =>
+        DateTime.TryParse(sqliteUtc, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var t)
+            ? t.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture)
+            : sqliteUtc ?? "unknown";
 
     // ---------- Small helpers over ADO.NET ----------
 

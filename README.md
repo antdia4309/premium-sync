@@ -15,6 +15,8 @@ A mock **policy system** binds, endorses, and cancels policies. Every premium-be
                        what doesn't match, and why
 ```
 
+![Reconciliation dashboard: 9 discrepancies across 8 policies, grouped by reason, with a findings list](docs/images/dashboard.png)
+
 ## Why I built it
 
 I've spent 10 years in P&C insurance, most recently as a business analyst tracing premium, fee, and commission discrepancies across integrated policy, billing, and finance systems. This project rebuilds that problem space from the code side. All data is synthetic and every scenario is generic.
@@ -28,6 +30,7 @@ I've spent 10 years in P&C insurance, most recently as a business analyst tracin
 - **Sync endpoints** (`/api/sync/...`): delivery status counts, retrying, held, and error-queue views.
 - **105 tests** covering proration, cancellation math, commission, contract validation, retries, ordering, business rules, the reconciliation SQL against real databases, and that every injected discrepancy is caught. CI runs them on every push.
 - **Reconciliation Service:** compares the two databases with SQL and reports every mismatch with a reason code. Each run is saved with its findings.
+- **React dashboard:** a one-line verdict, counts by reason, run history, and side-by-side ledgers for any policy.
 - **Dev endpoints** that generate realistic test policies, demonstrate commission drift, and inject every kind of discrepancy for reconciliation to find.
 
 ## Run it
@@ -38,8 +41,12 @@ Open in GitHub Codespaces (the dev container installs .NET 10), then:
 ./run.sh
 ```
 
+- Dashboard: http://localhost:5173
 - Policy API docs: http://localhost:5001/scalar
 - Billing API docs: http://localhost:5002/scalar
+- Reconciliation API docs: http://localhost:5003/scalar
+
+From the dashboard: **Add 100 test policies**, then **Run reconciliation** (clean), then **Inject problems** and **Run reconciliation** again (every reason code shows up).
 
 Then generate data:
 
@@ -54,6 +61,19 @@ Run the tests:
 ```bash
 dotnet test
 ```
+
+## Dashboard
+
+A React page (Vite, port 5173) for working through a reconciliation the way an ops analyst would:
+
+- **A one-line verdict** for the selected run: either the systems agree, or how many discrepancies across how many policies
+- **Counts by reason**, in plain language; click one to filter the findings
+- **Run history**, to compare today with earlier runs
+- **Side-by-side ledgers** for any policy: the policy system in blue, billing in green, and every disagreement in red
+
+![Side-by-side ledger for one policy, with a transaction billing booked that the policy system never sent](docs/images/ledger.png)
+
+The dashboard calls all three services through its dev server's proxy, so the APIs need no CORS setup.
 
 ## Reconciliation
 
@@ -85,7 +105,7 @@ Money is compared in integer cents, and expected commission is calculated with i
 - [ ] **Phase 3, reconciliation** (in progress)
   - [x] Reconciliation service: SQL comparison with reason codes, saved run history, EF migrations for all databases
   - [x] Injected discrepancies and an independent earned-premium check ([RCA 006](docs/rca-006-recon-status-gap.md))
-  - [ ] React dashboard
+  - [x] React dashboard: verdict, counts by reason, run history, side-by-side ledgers
 - [x] **Write-ups:** a root cause analysis for every failure scenario ([docs](docs/README.md))
 
 ### Backlog
@@ -99,6 +119,7 @@ src/
   PremiumSync.PolicyService/   policy system (port 5001)
   PremiumSync.BillingService/  billing system (port 5002)
   PremiumSync.Reconciliation/  reconciliation (port 5003); SQL lives in Sql/
+dashboard/                     React dashboard (port 5173)
 tests/
   PremiumSync.Tests/           xUnit tests
 docs/                          RCA write-ups (Phase 2+)
