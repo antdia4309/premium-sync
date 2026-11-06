@@ -1,4 +1,5 @@
-# Open in VS Code with the REST Client extension and click "Send Request".
+# Sample requests for every scenario. Open in VS Code with the REST Client extension and click "Send Request".
+# Start everything first with ./run.sh. Sections match the root cause analyses in docs/.
 @policy = http://localhost:5001
 @billing = http://localhost:5002
 @recon = http://localhost:5003
@@ -56,8 +57,8 @@ Content-Type: application/json
   "commissionRate": 0.9
 }
 
-### ---------- Phase 2: duplicate submission ----------
-### Send this SAME request twice, then check the billing account below.
+### ========== Duplicate submission (RCA 001) ==========
+### Send this SAME request twice: 201 the first time, 200 the second (nothing new booked).
 POST {{billing}}/api/inbound/transactions
 Content-Type: application/json
 
@@ -75,7 +76,7 @@ Content-Type: application/json
 ### Billing account for the duplicate test (count the rows, check the commission)
 GET {{billing}}/api/billing/accounts/PS-DUP-001
 
-### Same TransactionId, different premium: should be rejected with 409 after the fix
+### Same TransactionId, different premium: rejected with 409
 POST {{billing}}/api/inbound/transactions
 Content-Type: application/json
 
@@ -90,7 +91,7 @@ Content-Type: application/json
   "commissionRate": 0.15
 }
 
-### ---------- Phase 2: retries and the error queue ----------
+### ========== Retries and the error queue (RCA 002) ==========
 ### Sync status: how many transactions are Sent, Failed (retrying), or DeadLettered
 GET {{policy}}/api/sync/status
 
@@ -103,7 +104,7 @@ GET {{policy}}/api/sync/errors
 ### Resend one from the error queue (paste a transactionId from the list above)
 POST {{policy}}/api/sync/errors/99b3f822-2aa5-42f2-91b8-4d02c5338191/resend
 
-### ---------- Phase 2: out-of-order transactions ----------
+### ========== Out-of-order transactions (RCA 003) ==========
 ### Set this to the policy number returned by the bind below
 @orderPolicy = PS-000001
 
@@ -142,10 +143,10 @@ GET {{billing}}/api/billing/accounts/{{orderPolicy}}
 ### Billing's booking order: newest first, the id shows the order rows were booked
 GET {{billing}}/api/billing/transactions?take=10
 
-### Transactions held behind an earlier one (after the fix)
+### Transactions held behind an earlier one
 GET {{policy}}/api/sync/held
 
-### Billing guard: sequence 3 for a policy billing has never seen (should be 425 after the fix)
+### Billing guard: sequence 3 for a policy billing has never seen (rejected with 425)
 POST {{billing}}/api/inbound/transactions
 Content-Type: application/json
 
@@ -160,7 +161,7 @@ Content-Type: application/json
   "commissionRate": 0.15
 }
 
-### ---------- Phase 2: rounding drift ----------
+### ========== Cancellation math and commission drift (RCA 004) ==========
 ### Cancellation math: use the out-of-order section's Bind / Endorse / Cancel (billing up the whole time),
 ### then compare the policy's writtenPremium to the hand calculation:
 ###   earned = 1,200 x 273/365 + 600 x 91/365 = 1,047.12
@@ -169,7 +170,7 @@ GET {{policy}}/api/policies/{{orderPolicy}}
 ### Commission drift: $1,000 at 12.5% plus 20 endorsements of +$1.00. Compares policy vs. billing commission.
 POST {{policy}}/api/dev/drift-demo?endorsements=20
 
-### ---------- Phase 2: $0 and boundary transactions ----------
+### ========== Negative premium and $0 boundaries (RCA 005) ==========
 ### Bind a fresh policy for these (set @edgePolicy to the number it returns)
 @edgePolicy = PS-000001
 
@@ -212,7 +213,7 @@ Content-Type: application/json
 ### What billing has for the edge-case policy
 GET {{billing}}/api/billing/accounts/{{edgePolicy}}
 
-### Billing guard: a direct endorsement that would take the account below $0 (should be 400 after the fix)
+### Billing guard: a direct endorsement that would take the account below $0 (rejected with 400)
 POST {{billing}}/api/inbound/transactions
 Content-Type: application/json
 
@@ -227,7 +228,7 @@ Content-Type: application/json
   "commissionRate": 0.15
 }
 
-### ========== Phase 3: reconciliation ==========
+### ========== Reconciliation ==========
 
 ### Run a reconciliation now (policy and billing must have been started at least once)
 POST {{recon}}/api/recon/runs
@@ -247,7 +248,7 @@ GET {{recon}}/api/recon/runs/1/findings?reason=StuckInQueue
 ### Only one policy
 GET {{recon}}/api/recon/runs/1/findings?policy=PS-000001
 
-### ---------- Phase 3: inject discrepancies (Development only) ----------
+### ========== Inject discrepancies (Development only, RCA 006) ==========
 ### Seed first so there are healthy policies to corrupt
 POST {{policy}}/api/dev/seed?count=100
 
