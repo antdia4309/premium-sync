@@ -58,6 +58,10 @@ public static class ReconEngine
             findings.Add(Finding(ReasonCode.StatusMismatch, r, null, null,
                 $"Policy system says {r.Str("PolicyStatus")}; billing says {r.Str("BillingStatus")}."));
 
+        foreach (var r in Query(conn, "earned_premium_mismatch"))
+            findings.Add(Finding(ReasonCode.EarnedPremiumMismatch, r, r.Cents("ExpectedCents"), r.Cents("WrittenCents"),
+                "Written premium doesn't match an independent recalculation from the annual amounts. Policy value = expected; billing value = written."));
+
         var policies = Scalar(conn, "SELECT COUNT(*) FROM pol.Policies");
         var transactions = Scalar(conn, "SELECT COUNT(*) FROM pol.Transactions");
         return new ReconResult(policies, transactions, findings);

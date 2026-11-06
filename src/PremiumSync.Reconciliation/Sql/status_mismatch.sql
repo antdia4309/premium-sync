@@ -1,6 +1,7 @@
 -- StatusMismatch
 -- Policy-level check: does billing agree on whether the policy is cancelled?
---   - Policy says Cancelled, billing has no cancellation (and the cancellation is older than the cutoff, so it's not in flight)
+--   - Policy says Cancelled, billing has no cancellation, and either there's no cancellation transaction at all
+--     or it's older than the cutoff (so it's not just in flight)
 --   - Billing has a cancellation, policy says InForce
 WITH billing_policies AS (
     SELECT PolicyNumber,
@@ -20,6 +21,6 @@ SELECT p.PolicyNumber,
 FROM pol.Policies p
 JOIN billing_policies bp ON bp.PolicyNumber = p.PolicyNumber
 LEFT JOIN policy_cancellations pc ON pc.PolicyId = p.Id
-WHERE (p.Status = 'Cancelled' AND bp.BillingCancelled = 0 AND pc.CancelledAtUtc < @cutoffUtc)
+WHERE (p.Status = 'Cancelled' AND bp.BillingCancelled = 0 AND (pc.CancelledAtUtc IS NULL OR pc.CancelledAtUtc < @cutoffUtc))
    OR (p.Status <> 'Cancelled' AND bp.BillingCancelled = 1)
 ORDER BY p.PolicyNumber;

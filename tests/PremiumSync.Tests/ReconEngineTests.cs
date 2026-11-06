@@ -50,10 +50,11 @@ public class ReconEngineTests : IDisposable
     }
 
     private PolicyTransaction AddTxn(Policy p, int seq, TransactionType type, decimal premium,
-        SyncStatus status = SyncStatus.Sent, DateTime? created = null, decimal fee = 0m)
+        SyncStatus status = SyncStatus.Sent, DateTime? created = null, decimal fee = 0m,
+        decimal? annual = null, DateOnly? effective = null)
     {
-        var t = new PolicyTransaction { Policy = p, Sequence = seq, Type = type, EffectiveDate = new(2026, 1, 1),
-            PremiumChange = premium, FeeAmount = fee, SyncStatus = status, CreatedAtUtc = created ?? LongAgo };
+        var t = new PolicyTransaction { Policy = p, Sequence = seq, Type = type, EffectiveDate = effective ?? new(2026, 1, 1),
+            PremiumChange = premium, AnnualPremiumChange = annual, FeeAmount = fee, SyncStatus = status, CreatedAtUtc = created ?? LongAgo };
         p.Transactions.Add(t);
         return t;
     }
@@ -221,5 +222,62 @@ public class ReconEngineTests : IDisposable
     {
         var ex = Assert.Throws<FileNotFoundException>(() => ReconEngine.Run(Path.Combine(_dir, "nope.db"), _billingDb, Cutoff));
         Assert.Contains("Policy database not found", ex.Message);
+    }
+
+    // ---------- Status edge case ----------
+
+    [Fact]
+    public void Cancelled_status_with_no_cancellation_transaction_is_a_status_mismatch()
+    {
+        var p = AddPolicy("PS-000001", status: PolicyStatus.Cancelled);
+        Book(p, AddTxn(p, 1, TransactionType.NewBusiness, 1200m));
+
+        Assert.Equal([ReasonCode.StatusMismatch], Codes(Run()));
+    }
+
+    // ---------- Independent earned premium ----------
+    // $1,200 bound 1/1, +$600 annual endorsed 7/2 (prorated 300.82), cancelled 10/1.
+    // Earned = 1,200 x 273/365 + 600 x 91/365 = 1,047.12
+
+    private Policy AddEndorsedCancelled(string number, decimal cancellationPremium)
+    {
+        var p = AddPolicy(number, status: PolicyStatus.Cancelled);
+        var nb = AddTxn(p, 1, TransactionType.NewBusiness, 1200m, annual: 1200m);
+        var en = AddTxn(p, 2, TransactionType.Endorsement, 300.82m, annual: 600m, effective: new(2026, 7, 2));
+        var cx = AddTxn(p, 3, TransactionType.Cancellation, cancellationPremium, effective: new(2026, 10, 1));
+        var written = 1200m + 300.82m + cancellationPremium;
+        var c1 = 180m; var c2 = Math.Round(1500.82m * 0.15m, 2, MidpointRounding.AwayFromZero) - c1;
+        var c3 = Math.Round(written * 0.15m, 2, MidpointRounding.AwayFromZero) - c1 - c2;
+        Book(p, nb, commission: c1); Book(p, en, commission: c2); Book(p, cx, commission: c3);
+        return p;
+    }
+
+    [Fact]
+    public void Correct_cancellation_matches_the_independent_calculation()
+    {
+        AddEndorsedCancelled("PS-000001", cancellationPremium: -453.70m);
+        Assert.Empty(Run().Findings);
+    }
+
+    [Fact]
+    public void Old_cancellation_math_is_caught_even_when_both_systems_agree()
+    {
+        // The pre-RCA 004 math returned -378.29. Both systems booked it the same way, so only the independent check catches it.
+        AddEndorsedCancelled("PS-000001", cancellationPremium: -378.29m);
+
+        var f = Assert.Single(Run().Findings);
+        Assert.Equal(ReasonCode.EarnedPremiumMismatch, f.ReasonCode);
+        Assert.Equal(1047.12m, f.PolicyValue);    // expected
+        Assert.Equal(1122.53m, f.BillingValue);   // written
+        Assert.Equal(75.41m, f.Difference);
+    }
+
+    [Fact]
+    public void Policies_without_annual_amounts_are_skipped_by_the_earned_check()
+    {
+        // Created before AnnualPremiumChange existed: no basis for an independent calculation.
+        var p = AddPolicy("PS-000001");
+        Book(p, AddTxn(p, 1, TransactionType.NewBusiness, 999m));
+        Assert.Empty(Run().Findings);
     }
 }

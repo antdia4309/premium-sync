@@ -37,6 +37,7 @@ public class PolicyWorkflow(PolicyDbContext db, TransactionSender sender)
             Type = TransactionType.NewBusiness,
             EffectiveDate = req.EffectiveDate,
             PremiumChange = Math.Round(req.AnnualPremium, 2),
+            AnnualPremiumChange = req.AnnualPremium,
             FeeAmount = Math.Round(req.FeeAmount, 2),
         };
         return await SaveAndSendAsync(policy, txn, ct);
@@ -61,6 +62,7 @@ public class PolicyWorkflow(PolicyDbContext db, TransactionSender sender)
             Type = TransactionType.Endorsement,
             EffectiveDate = req.EffectiveDate,
             PremiumChange = proratedChange,
+            AnnualPremiumChange = req.AnnualPremiumChange,
             FeeAmount = Math.Round(req.FeeAmount, 2),
         };
         return await SaveAndSendAsync(policy, txn, ct);

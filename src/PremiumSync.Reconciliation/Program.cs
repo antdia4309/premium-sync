@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PremiumSync.Reconciliation.Data;
+using PremiumSync.Reconciliation.Dev;
 using PremiumSync.Reconciliation.Endpoints;
 using PremiumSync.Reconciliation.Engine;
 using Scalar.AspNetCore;
@@ -29,6 +30,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
+    app.MapDevEndpoints();   // corrupts data on purpose: never mapped outside Development
 }
 
 app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();

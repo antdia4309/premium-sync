@@ -9,6 +9,7 @@ Root cause analyses for each failure scenario in the project.
 | [003](rca-003-out-of-order.md) | Transactions reach billing out of order | Sender holds + billing sequence check |
 | [004](rca-004-rounding-drift.md) | Cancellation return and commission drift | Per-transaction unearned share + cumulative commission |
 | [005](rca-005-zero-and-boundary.md) | Negative premium and $0 boundary transactions | Change-date rules + premium floor on both sides |
+| [006](rca-006-recon-status-gap.md) | Reconciliation missed a cancelled status with no cancellation | Explicit `NULL` handling in the status query |
 
 ## RCA template
 
