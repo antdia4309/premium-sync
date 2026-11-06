@@ -26,9 +26,9 @@ I've spent 10 years in P&C insurance, most recently as a business analyst tracin
 - **Shared contract** (`PremiumSync.Contracts`): the message and status codes both sides agree on.
 - **Failure handling:** idempotent billing, background retries with exponential backoff, an error queue with manual resend, and per-policy ordering.
 - **Sync endpoints** (`/api/sync/...`): delivery status counts, retrying, held, and error-queue views.
-- **89 tests** covering proration, cancellation math, commission, contract validation, retries, ordering, business rules, and the reconciliation SQL against real databases. CI runs them on every push.
+- **105 tests** covering proration, cancellation math, commission, contract validation, retries, ordering, business rules, the reconciliation SQL against real databases, and that every injected discrepancy is caught. CI runs them on every push.
 - **Reconciliation Service:** compares the two databases with SQL and reports every mismatch with a reason code. Each run is saved with its findings.
-- **Dev endpoints** that generate realistic test policies and demonstrate commission drift.
+- **Dev endpoints** that generate realistic test policies, demonstrate commission drift, and inject every kind of discrepancy for reconciliation to find.
 
 ## Run it
 
@@ -67,8 +67,11 @@ dotnet test
 | `PremiumMismatch` / `FeeMismatch` | Transaction | Same transaction, different amount |
 | `CommissionMismatch` | Policy | Booked commission ≠ written premium × rate (fully synced policies only) |
 | `StatusMismatch` | Policy | The systems disagree on whether the policy is cancelled |
+| `EarnedPremiumMismatch` | Policy | Written premium doesn't match an **independent recalculation** from the original annual amounts. Catches errors where both systems agree and both are wrong |
 
 Money is compared in integer cents, and expected commission is calculated with integer math, so SQL rounds exactly the way the C# code does.
+
+**Proving the report works:** in Development, `POST /api/dev/inject/all` corrupts the databases directly (bypassing every rule in both services) with one discrepancy of each kind, each on a different healthy policy, and says which findings to expect. Tests do the same for every kind, so a clean report means "nothing is wrong," not "the check is broken."
 
 ## Roadmap
 
@@ -81,7 +84,7 @@ Money is compared in integer cents, and expected commission is calculated with i
   - [x] Negative premium and $0 boundary transactions → change-date rules, premium floor on both sides ([RCA 005](docs/rca-005-zero-and-boundary.md))
 - [ ] **Phase 3, reconciliation** (in progress)
   - [x] Reconciliation service: SQL comparison with reason codes, saved run history, EF migrations for all databases
-  - [ ] Injected discrepancies and an independent earned-premium check
+  - [x] Injected discrepancies and an independent earned-premium check ([RCA 006](docs/rca-006-recon-status-gap.md))
   - [ ] React dashboard
 - [x] **Write-ups:** a root cause analysis for every failure scenario ([docs](docs/README.md))
 

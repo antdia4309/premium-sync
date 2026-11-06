@@ -14,3 +14,4 @@ which is exact because every stored amount has at most two decimal places.
 | `amount_mismatch.sql` | `PremiumMismatch`, `FeeMismatch` | transaction |
 | `commission_mismatch.sql` | `CommissionMismatch` | policy |
 | `status_mismatch.sql` | `StatusMismatch` | policy |
+| `earned_premium_mismatch.sql` | `EarnedPremiumMismatch` | policy (independent recalculation) |

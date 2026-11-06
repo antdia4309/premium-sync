@@ -246,3 +246,25 @@ GET {{recon}}/api/recon/runs/1/findings?reason=StuckInQueue
 
 ### Only one policy
 GET {{recon}}/api/recon/runs/1/findings?policy=PS-000001
+
+### ---------- Phase 3: inject discrepancies (Development only) ----------
+### Seed first so there are healthy policies to corrupt
+POST {{policy}}/api/dev/seed?count=100
+
+### Run a clean reconciliation first: should be 0 findings
+POST {{recon}}/api/recon/runs
+
+### Kinds you can inject
+GET {{recon}}/api/dev/inject/kinds
+
+### Inject one of every kind, each on a different policy (the response says what each should produce)
+POST {{recon}}/api/dev/inject/all
+
+### Or inject a single kind (optionally add &policy=PS-000123)
+POST {{recon}}/api/dev/inject?kind=EarnedPremiumMismatch
+
+### Reconcile again: every reason code should show up
+POST {{recon}}/api/recon/runs
+
+### The "both systems agree and both are wrong" finding (change the run id)
+GET {{recon}}/api/recon/runs/2/findings?reason=EarnedPremiumMismatch

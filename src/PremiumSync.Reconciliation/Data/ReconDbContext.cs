@@ -10,7 +10,8 @@ public enum ReasonCode
     PremiumMismatch,     // same transaction, different premium
     FeeMismatch,         // same transaction, different fee
     CommissionMismatch,  // policy-level: booked commission vs. expected
-    StatusMismatch       // policy-level: systems disagree on cancelled vs. in force
+    StatusMismatch,      // policy-level: systems disagree on cancelled vs. in force
+    EarnedPremiumMismatch // policy-level: written premium doesn't match an independent recalculation
 }
 
 /// <summary>One reconciliation run: when it ran, how much it checked, what it found.</summary>

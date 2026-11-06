@@ -36,6 +36,12 @@ public class PolicyTransaction
     public TransactionType Type { get; set; }
     public DateOnly EffectiveDate { get; set; }
     public decimal PremiumChange { get; set; }
+
+    /// <summary>
+    /// The annual amount this transaction was prorated from (new business: annual premium; endorsement: annual change).
+    /// Null for cancellations. Kept so reconciliation can recalculate premium independently of the prorated result.
+    /// </summary>
+    public decimal? AnnualPremiumChange { get; set; }
     public decimal FeeAmount { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 

@@ -58,6 +58,9 @@ namespace PremiumSync.PolicyService.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<decimal?>("AnnualPremiumChange")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("AttemptCount")
                         .HasColumnType("INTEGER");
 
